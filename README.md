@@ -9,4 +9,5 @@ And then, each thread performs matrix (rather vector) multiplication in parallel
 Furthermore, to use AVX2 instructions, I transpose the matrix B before parallel multiplication.  
 Because to use the AVX2 fmadd, the addresses of the variables to be multiplied and added must be in order.  
 
-As a result, I could parallelized the matrix multiplication with the node (MPI), thread (pthread), and operation (AVX2) levels.
+As a result, I could parallelized the matrix multiplication with the node (MPI), thread (pthread), and operation (AVX2) levels.  
+You can just call the matmul function with your own script
