@@ -1,7 +1,7 @@
 # Parallel-matrix-multiplication-with-MPI
 
-When multiplying matrices of size M$\times$K (matrix A) and K$\times$N (matrix B), it takes K multiplications (and sum) M$\times$N times.  
-So, I first set the number of total jobs as M$\times$N, and divided it with the number of working nodes size (MPI).  
+When multiplying matrices of size M\*K (matrix A) and K\*N (matrix B), it takes K multiplications (and sum) M\*N times.  
+So, I first set the number of total jobs as M\*N, and divided it with the number of working nodes size (MPI).  
 The root node is responsible for taking remaining jobs that can not divided by the number of nodes.
 
 And then, each thread performs matrix (rather vector) multiplication in parallel for the task assigned to the corresponding node.
