@@ -2,7 +2,6 @@
 #include "util.h"
 #include <immintrin.h>
 #include <mpi.h>
-#include <omp.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
