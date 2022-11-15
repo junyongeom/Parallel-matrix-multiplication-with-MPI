@@ -1,5 +1,5 @@
 #define _GNU_SOURCE
-#include "util.h"
+
 #include <immintrin.h>
 #include <mpi.h>
 #include <pthread.h>
