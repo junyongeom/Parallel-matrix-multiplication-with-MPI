@@ -38,8 +38,8 @@ static void *matmul_kernel(void *arg) {
     __m256 sum;
     sum = _mm256_set1_ps(0.0f);   
     for(; k+8 <= K; k+=8){  // k+8 <= K;
-      __m256 l = _mm256_loadu_ps(&A[aidx+k]);
-      __m256 r = _mm256_loadu_ps(&B[bidx+k]);
+      __m256 l = _mm256_loadu_ps(&A[aidx+k]); // must use loadu not b 
+      __m256 r = _mm256_loadu_ps(&B[bidx+k]); // because of the memory alignment matter
       sum = _mm256_fmadd_ps(l, r, sum);   
     }
     __m128 hi = _mm256_extractf128_ps(sum, 1);
@@ -70,21 +70,27 @@ void matmul(const float *A, const float *B, float *C, int M, int N, int K,
   int JPN = (M*N) / mpi_world_size; // Jobs per node
   float* transposeB;
   transposeB = (float*)malloc(sizeof(float)*(N*K)); 
-  int offset = M*N - JPN * (mpi_world_size-1);
+  int offset = M*N - JPN * (mpi_world_size-1); // root node is responsible for taking remaining jobs
   int start, end;
 
   if(mpi_rank==0){ //root  
     start = 0;
-    end = offset;  
+    end = offset; 
+    
+    /* transpose matrix B*/
     for (int i = 0; i < K; ++i){
       for (int j = 0; j < N; ++j) {
         transposeB[i+K*j] = B[i*N+j];
       }
     }
+    
+    /* distributes matrices */
     for(int i = 1; i < mpi_world_size; i++){
       MPI_Send(A, M*K, MPI_FLOAT, i, 1000, MPI_COMM_WORLD);
       MPI_Send(transposeB, N*K, MPI_FLOAT, i, 1001, MPI_COMM_WORLD);
     }
+    
+    /* thread level parallel execution */
     for (int t = 0; t < threads_per_process; t++){
       args[t].A = A, args[t].transB = transposeB, args[t].C = C, args[t].K = K, args[t].N = N,
       args[t].rank = t, args[t].start = start, args[t].end = end, args[t].num_threads = threads_per_process;
@@ -101,20 +107,25 @@ void matmul(const float *A, const float *B, float *C, int M, int N, int K,
         exit(EXIT_FAILURE);
       }
     }
+    
+    /* gathers matrices (vector) */
     for(int i = 1; i < mpi_world_size; i++){
       MPI_Recv(&C[offset+JPN*(i-1)], JPN, MPI_FLOAT, i, 1002, MPI_COMM_WORLD,&status);
     }
     free(transposeB); 
   }
 
-
   else{ // child node
     int start = offset + (mpi_rank-1) * JPN;
     int end = start + JPN;
     float* newA;
     newA = (float*)malloc(sizeof(float)*(M*K)); 
+    
+    /* gets matrices */
     MPI_Recv(newA, M*K, MPI_FLOAT, 0, 1000, MPI_COMM_WORLD,&status);
     MPI_Recv(transposeB, N*K, MPI_FLOAT, 0, 1001, MPI_COMM_WORLD,&status);
+    
+    /* thread level parallel execution */
     for (int t = 0; t < threads_per_process; t++){
       args[t].A = newA, args[t].transB = transposeB, args[t].C = C, args[t].K = K, args[t].N = N,
       args[t].rank = t, args[t].start = start, args[t].end = end, args[t].num_threads = threads_per_process;
@@ -131,7 +142,10 @@ void matmul(const float *A, const float *B, float *C, int M, int N, int K,
         exit(EXIT_FAILURE);
       }
     }
+    
+    /* returns calculation results */
     MPI_Send(&C[offset+JPN*(mpi_rank-1)], JPN, MPI_FLOAT, 0, 1002, MPI_COMM_WORLD);
+    
     free(newA);
     free(transposeB); 
   }
